@@ -15,3 +15,6 @@ Okay for real, this was made with the goal to make Nim truely portable to many o
  * Java
    * Now this, THIS is the real beast, the goal of this would be to attempt to make a Java backend for Nim that intergrates decently with other Java libraries, and for using Nim to make a Java library itself.
      * This will definitely be harder than the others, but would be amazing to pull off!
+
+## Acknowledgements
+Thanks to Zerbina for providing the stuff we needed! We were veeeeery lost
