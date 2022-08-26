@@ -1,46 +1,12 @@
 when not defined(nimcore):
   {.error: "`nimcore` must be defined as we use Nim compiler libraries!".}
 
-when defined(isCyo) or defined(isNimskull):
-  import
-    compiler/ast/[
-      ast_idgen, reports, idents
-    ],
-    compiler/front/[
-      msgs, cmdlinehelper, options, commands, cli_reporter
-    ],
-    compiler/modules/[
-      modulegraphs, modules
-    ],
-    compiler/sem/[
-      passes, passaux, sem
-    ],
-    compiler/utils/[
-      pathutils
-    ],
-    std/[
-      json, os
-    ]
-else:
-  import
-    compiler/[
-      ast, idents, lineinfos, modulepaths
-    ],
-    compiler/[
-      msgs, cmdlinehelper, options, commands
-    ],
-    compiler/[
-      modulegraphs, modules
-    ],
-    compiler/[
-      passes, passaux, sem
-    ],
-    compiler/[
-      pathutils
-    ],
-    std/[
-      json, os, parseopt
-    ]
+import compiler/[ast, idents, lineinfos, modulepaths, options, commands,
+  msgs, cmdlinehelper, modulegraphs, modules, passes, passaux, sem, pathutils]
+
+import std/[os, parseopt]
+
+import serialisation
 
 type
   Module = ref object of TPassContext
@@ -103,29 +69,17 @@ proc mainCommand(graph: ModuleGraph) =
 
   let conf = graph.config
 
+  echo ""
+
   # we now have access to each semantically analysed statement and declaration
   # for each processed module. Do note that the AST is in the raw semantically
   # analysed form - it is not transformed (see ``transf``) nor was it
   # processed by ``injectdestructors`` (so no ARC/ORC)
-  for m in mlist.modules.items:
-    # create a file for writing the JSON data to. The file is located in the nimcache directory
-    let nimfile = AbsoluteFile toFullPath(conf, m.sym.position.FileIndex)
 
-    when defined(isCyo) or defined(isNimskull):
-      let modulePath = withPackageName(conf, nimfile)
-    else:
-      let modulePath = mangleModuleName(conf, nimfile).AbsoluteFile
-
-    let f = open(changeFileExt(completeGeneratedFilePath(conf, modulePath, true), "json").string, fmWrite)
-
-    echo ""
-    for n in m.nodes.items: # AST serialisation stuff!
-      if n == nil:
-        continue
-
-      echo "A"
-
-    f.close()
+  # NOTE: Output data is being written to a single file rn!
+  var fs = newFileStream("output.msgpack", fmWrite)
+  serialise(fs, graph, mlist)
+  fs.close()
 
 
 proc processCmdLine(pass: TCmdLinePass, cmd: string; config: ConfigRef) =
@@ -173,7 +127,7 @@ proc handleCmdLine(cache: IdentCache; conf: ConfigRef) =
     processCmdLine: processCmdLine # <- the callback used for processing the command line
   )
   # unconditionally enable some ``define``s:
-  self.initDefinesProg(conf, "nim2json")
+  self.initDefinesProg(conf, "nim2ir")
 
   # write out usage information and quit if no arguments are provided
   if paramCount() == 0:
@@ -195,22 +149,7 @@ proc handleCmdLine(cache: IdentCache; conf: ConfigRef) =
 
   mainCommand(graph)
 
-when defined(isCyo) or defined(isNimskull):
-  var conf = newConfigRef(cli_reporter.reportHook)
-
-  block:
-    # setup the write hooks. These hooks are invoked when the compiler wants to
-    # output something - error or warning messages for example
-    conf.writeHook =
-      proc(conf: ConfigRef, msg: string, flags: MsgFlags) =
-        # write to stdout or stderr depending on configuration
-        msgs.msgWrite(conf, msg, flags)
-
-    conf.writelnHook =
-      proc(conf: ConfigRef, msg: string, flags: MsgFlags) =
-        conf.writeHook(conf, msg & "\n", flags)
-else:
-  var conf = newConfigRef()
+var conf = newConfigRef()
 
 handleCmdLine(newIdentCache(), conf)
 
