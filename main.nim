@@ -4,10 +4,13 @@ when not defined(nimcore):
 import compiler/[ast, idents, lineinfos, modulepaths, options, commands,
   msgs, cmdlinehelper, modulegraphs, modules, passes, passaux, sem, pathutils]
 
-import std/[os, parseopt]
+import std/[os, parseopt, streams]
 
-import serialisation
+#import serialisation
 
+import serialiser
+
+#[
 type
   Module = ref object of TPassContext
     sym: PSym
@@ -15,6 +18,7 @@ type
 
   ModuleList = ref object of RootObj
     modules: seq[Module]
+]#
 
 proc myOpen(graph: ModuleGraph; s: PSym; idgen: IdGenerator): PPassContext =
   ## Called when a new module starts parsing/processing. Note that multiple
@@ -78,7 +82,10 @@ proc mainCommand(graph: ModuleGraph) =
 
   # NOTE: Output data is being written to a single file rn!
   var fs = newFileStream("output.msgpack", fmWrite)
+  # serialise(fs, graph, mlist)
+
   serialise(fs, graph, mlist)
+
   fs.close()
 
 
@@ -127,7 +134,8 @@ proc handleCmdLine(cache: IdentCache; conf: ConfigRef) =
     processCmdLine: processCmdLine # <- the callback used for processing the command line
   )
   # unconditionally enable some ``define``s:
-  self.initDefinesProg(conf, "nim2ir")
+  self.initDefinesProg(conf, "nim2ir") # Simply allows you to define code specific to this backend
+  self.initDefinesProg(conf, "useNodeIds") # Allows us to reference node IDs, this is *needed*
 
   # write out usage information and quit if no arguments are provided
   if paramCount() == 0:

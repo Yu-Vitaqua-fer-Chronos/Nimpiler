@@ -1,4 +1,4 @@
-import compiler/[ast, modulegraphs, msgs]
+import compiler/[ast, modulegraphs, msgs, idents]
 
 import std/[streams, intsets, os, options]
 
@@ -13,12 +13,15 @@ type
     data: seq[T]
     marker: IntSet
 
-  SerialisedFlags = object
-
   SerialisedIdent = object
     s*:string  # Adding this in for future proofing
 
+  SerialisedType = object
+    
+
   SerialisedSymbol = object
+    name*:PIdent
+    itemId*:ItemId
 
 
   # Note: For now, we're only handling the minimal amount of data,
@@ -26,7 +29,7 @@ type
   SerialisedNode = object
     id*:int
     typ*:string
-    flags*:SerialisedFlags
+    flags*:TNodeFlags  # Simple enough to be converted, also idk what this is for lmao
 
     # Reason why we have a separate field for simple kind is so it's simpler for the target language to
     # handle, though using the `kind` field would definitely be preferred if the language has a more
@@ -47,7 +50,7 @@ type
       sym*: SerialisedSymbol
 
     of nkIdent:
-      ident*: SerailisedIdent
+      ident*: PIdent
 
     else:
       children*: seq[SerialisedNode]
@@ -58,6 +61,8 @@ type
 
   SerialisedOutput = object  # TODO: Figure out a better name for this
     modules*:seq[SerialisedModule]
+    refPTypes*:seq[]
+    ref
 
 func collect(x: PSym, syms: var Collected[PSym], types: var Collected[PType]) =
   if syms.marker.containsOrIncl(x.id):
@@ -118,6 +123,7 @@ proc serialise(graph:ModuleGraph, mlist: ModuleList) =
       nimfile = AbsoluteFile toFullPath(graph.config, m.sym.position.FileIndex)
 
     for n in m.nodes.items:
+      n.flags
       serialize(serialisedOutput, ctx, n)
 
     serialisedOutput.modules.add(SerialisedModule(path:nimfile.string, top_level:"PLACEHOLDER"))
