@@ -6,19 +6,9 @@ import compiler/[ast, idents, lineinfos, modulepaths, options, commands,
 
 import std/[os, parseopt, streams]
 
-#import serialisation
+import nimpiler/typedefinitions
 
-import serialiser
-
-#[
-type
-  Module = ref object of TPassContext
-    sym: PSym
-    nodes: seq[PNode]
-
-  ModuleList = ref object of RootObj
-    modules: seq[Module]
-]#
+# import serialiser
 
 proc myOpen(graph: ModuleGraph; s: PSym; idgen: IdGenerator): PPassContext =
   ## Called when a new module starts parsing/processing. Note that multiple
@@ -80,13 +70,14 @@ proc mainCommand(graph: ModuleGraph) =
   # analysed form - it is not transformed (see ``transf``) nor was it
   # processed by ``injectdestructors`` (so no ARC/ORC)
 
-  # NOTE: Output data is being written to a single file rn!
-  var fs = newFileStream("output.msgpack", fmWrite)
+  # var fs = newFileStream("output.msgpack", fmWrite)
+
   # serialise(fs, graph, mlist)
 
-  serialise(fs, graph, mlist)
+  # fs.close()
 
-  fs.close()
+  if conf.command == "java":
+    discard
 
 
 proc processCmdLine(pass: TCmdLinePass, cmd: string; config: ConfigRef) =
@@ -121,21 +112,14 @@ proc processCmdLine(pass: TCmdLinePass, cmd: string; config: ConfigRef) =
     if config.arguments.len > 0:
       rawMessage(config, errGenerated, errArgsNeedRunOption)
 
-  if config.commandArgs.len == 0: config.commandArgs = @[config.command]
-  config.command = "empty"
-  config.commandLine = config.command & config.commandLine
-  config.projectName = config.commandArgs[0]
-  config.projectFull = config.projectName.AbsoluteFile
-  config.projectPath = AbsoluteDir getCurrentDir()
-
 proc handleCmdLine(cache: IdentCache; conf: ConfigRef) =
   let self = NimProg(
     supportsStdinFile: true,
     processCmdLine: processCmdLine # <- the callback used for processing the command line
   )
   # unconditionally enable some ``define``s:
-  self.initDefinesProg(conf, "nim2ir") # Simply allows you to define code specific to this backend
-  self.initDefinesProg(conf, "useNodeIds") # Allows us to reference node IDs, this is *needed*
+  if conf.command == "java":
+    self.initDefinesProg(conf, "java")
 
   # write out usage information and quit if no arguments are provided
   if paramCount() == 0:

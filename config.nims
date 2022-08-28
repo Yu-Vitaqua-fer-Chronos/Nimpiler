@@ -1,2 +1,3 @@
 --path:"$nim"
+--define:useNodeIds
 --define:nimcore

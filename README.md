@@ -1,5 +1,5 @@
-# Nim2IR
-This tool converts Nim to an easy to parse format! Currently the goal is MessagePack but if someone adds a way to generate more formats in a simple to intergrate way, I am *more* than happy to include it! Reason why we didn't use JSON as we wanted to, is because the file size that would be generated for some files were *big*, from tests Zerbina did with their own local implementation of Nim2JSON, (Nim2IR's original purpose) which went up to around 780 MB on disk.
+# Nimpiler
+Nimpiler is a project made to convert Nim code/syntax (unsure if this will have the goal of making anything pure Nim code to another language, especially since concepts between languages change) to another language! Additionally we should eventually have a working serialisation backend!
 
 ## Why?
 This was made with the goal to make Nim truely portable to many other programming languages, especially Java due to us thinking that the JVM has a severe lack of easy to use languages! sure, Kotlin and Haxe exist, but in our opinion, they don't compare to the beauty we see in Nim!
@@ -26,11 +26,7 @@ Once a target is in a semi-usable state we will cross off the language name!
  * "You first traverse all the top-level statements/declaration and collect the symbols and types referenced by them. Then you traverse all types and symbols and collect the symbols and types referenced by them." relating to handling getting all references and stuff
 
 ## Notes
-This is currently a W.I.P, code is uploaded as a backup for now tbh.
-
-`serialisation.nim.bak` is code i don't wanna delete since it *may* be useful but doubtful currently.
-
-Currently I've implemented all of the types (with direct references removed), logic still needs to be worked on.
+This is currently a heavy W.I.P, code is uploaded as a backup for now tbh.
 
 ## Acknowledgements
 Thanks to Zerbina for providing the stuff we needed to get started! It was more like 98% of the code aha-
