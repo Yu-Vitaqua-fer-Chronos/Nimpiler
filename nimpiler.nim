@@ -115,9 +115,12 @@ proc handleCmdLine(cache: IdentCache; conf: ConfigRef) =
     supportsStdinFile: true,
     processCmdLine: hardcodeJava # <- the callback used for processing the command line
   )
-  # unconditionally enable some ``define``s:
+  # Unconditionally enable some ``define``s:
   self.initDefinesProg(conf, "nimpiler")
   self.initDefinesProg(conf, "java")
+
+  # Use the Nimskull path cloned locally
+  conf.libpath = (getAppDir() / "modules" / "nimskull" / "lib").toAbsoluteDir
 
   # write out usage information and quit if no arguments are provided
   if paramCount() == 0:
