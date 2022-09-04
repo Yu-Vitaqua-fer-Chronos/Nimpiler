@@ -11,3 +11,4 @@ bin           = @["nimpiler"]
 # Dependencies
 
 requires "nim >= 1.6.6"
+requires "codegenlib >= 1.1.9"

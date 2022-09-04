@@ -7,6 +7,7 @@ import compiler/[ast, idents, lineinfos, modulepaths, options, commands,
 import std/[os, parseopt, streams]
 
 import nimpiler/typedefinitions
+import nimpiler/backends/javatarget
 
 # import serialiser
 
@@ -77,7 +78,7 @@ proc mainCommand(graph: ModuleGraph) =
   # fs.close()
 
   if conf.command == "java":
-    discard
+    toJava(graph, mlist)
 
 
 proc processCmdLine(pass: TCmdLinePass, cmd: string; config: ConfigRef) =
@@ -112,14 +113,22 @@ proc processCmdLine(pass: TCmdLinePass, cmd: string; config: ConfigRef) =
     if config.arguments.len > 0:
       rawMessage(config, errGenerated, errArgsNeedRunOption)
 
+  # Hardcode java backend for now
+  if config.commandArgs.len == 0: config.commandArgs = @[config.command]
+  config.command = "java"
+  config.commandLine = config.command & config.commandLine
+  config.projectName = config.commandArgs[0]
+  config.projectFull = config.projectName.AbsoluteFile
+  config.projectPath = AbsoluteDir getCurrentDir()
+
 proc handleCmdLine(cache: IdentCache; conf: ConfigRef) =
   let self = NimProg(
     supportsStdinFile: true,
     processCmdLine: processCmdLine # <- the callback used for processing the command line
   )
   # unconditionally enable some ``define``s:
-  if conf.command == "java":
-    self.initDefinesProg(conf, "java")
+  self.initDefinesProg(conf, "nimpiler")
+  self.initDefinesProg(conf, "java")
 
   # write out usage information and quit if no arguments are provided
   if paramCount() == 0:

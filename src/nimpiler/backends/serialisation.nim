@@ -6,7 +6,7 @@ import compiler/[ast, modulegraphs, idents, lineinfos, ropes, options, pathutils
 
 import std/[streams, tables, options]
 
-import coretypes
+import ../typedefinitions
 
 import msgpack4nim
 
