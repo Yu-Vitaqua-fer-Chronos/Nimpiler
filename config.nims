@@ -1,3 +1,4 @@
+--path:"modules/codegenlib/src"
 --path:"$nim"
---define:useNodeIds
 --define:nimcore
+--define:useNodeIds

@@ -1,0 +1,3 @@
+[submodule "modules/codegenlib"]
+	path = modules/codegenlib
+	url = https://github.com/Mythical-Forest-Collective/CodeGenLib
