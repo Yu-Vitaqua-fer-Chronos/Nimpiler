@@ -98,37 +98,8 @@ proc mainCommand(graph: ModuleGraph) =
     toJava(graph, mlist)
 
 
-proc processCmdLine(pass: TCmdLinePass, cmd: string; config: ConfigRef) =
-  var p = parseopt.initOptParser(cmd)
-  var argsCount = 0
-
-  config.commandLine.setLen 0
-    # bugfix: otherwise, config.commandLine ends up duplicated
-
-  while true:
-    parseopt.next(p)
-    case p.kind
-    of cmdEnd: break
-    of cmdLongOption, cmdShortOption:
-      config.commandLine.add " "
-      config.commandLine.addCmdPrefix p.kind
-      config.commandLine.add p.key.quoteShell # quoteShell to be future proof
-      if p.val.len > 0:
-        config.commandLine.add ':'
-        config.commandLine.add p.val.quoteShell
-
-      if p.key == "": # `-` was passed to indicate main project is stdin
-        p.key = "-"
-        if processArgument(pass, p, argsCount, config): break
-      else:
-        processSwitch(pass, p, config)
-    of cmdArgument:
-      config.commandLine.add " "
-      config.commandLine.add p.key.quoteShell
-      if processArgument(pass, p, argsCount, config): break
-  if pass == passCmd2:
-    if config.arguments.len > 0:
-      rawMessage(config, errGenerated, errArgsNeedRunOption)
+proc hardcodeJava(pass: TCmdLinePass, cmd: string; config: ConfigRef) =
+  processCmdLine(pass, cmd, config)
 
   # Hardcode java backend for now
   if config.commandArgs.len == 0: config.commandArgs = @[config.command]
@@ -138,10 +109,11 @@ proc processCmdLine(pass: TCmdLinePass, cmd: string; config: ConfigRef) =
   config.projectFull = config.projectName.AbsoluteFile
   config.projectPath = AbsoluteDir getCurrentDir()
 
+
 proc handleCmdLine(cache: IdentCache; conf: ConfigRef) =
   let self = NimProg(
     supportsStdinFile: true,
-    processCmdLine: processCmdLine # <- the callback used for processing the command line
+    processCmdLine: hardcodeJava # <- the callback used for processing the command line
   )
   # unconditionally enable some ``define``s:
   self.initDefinesProg(conf, "nimpiler")
@@ -167,7 +139,19 @@ proc handleCmdLine(cache: IdentCache; conf: ConfigRef) =
 
   mainCommand(graph)
 
-var conf = newConfigRef()
+
+var conf = newConfigRef(cli_reporter.reportHook)
+block:
+  # setup the write hooks. These hooks are invoked when the compiler wants to
+  # output something - error or warning messages for example
+  conf.writeHook =
+    proc(conf: ConfigRef, msg: string, flags: MsgFlags) =
+      # write to stdout or stderr depending on configuration
+      msgs.msgWrite(conf, msg, flags)
+
+  conf.writelnHook =
+    proc(conf: ConfigRef, msg: string, flags: MsgFlags) =
+      conf.writeHook(conf, msg & "\n", flags)
 
 handleCmdLine(newIdentCache(), conf)
 
