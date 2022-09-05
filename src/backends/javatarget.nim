@@ -1,4 +1,5 @@
 import ../typedefinitions
+import ../utils
 
 import codegenlib/java
 
@@ -23,27 +24,9 @@ import
   ]
 
 
-proc nodehandler(node:PNode) =
-  case node.kind
-  of nkCharLit..nkUInt64Lit:
-    discard
-  of nkFloatLit..nkFloat128Lit:
-    discard
-  of nkStrLit..nkTripleStrLit:
-    discard
-  of nkSym:
-    echo "Here be symbols!"
-  of nkIdent:
-    discard
-  else:
-    for son in node.sons.items:
-      nodehandler(son)
-
 
 proc toJava*(graph:ModuleGraph, mlist:ModuleList) =
-  #var objectClasses = initTable[string, JavaClass]()
-
-  #var basepkg = "base.package"
+  var data = Data()
 
   for m in mlist.modules.items:
     if m == nil:
@@ -55,9 +38,4 @@ proc toJava*(graph:ModuleGraph, mlist:ModuleList) =
       if n == nil:
         continue
 
-      case n.kind
-      of nkSym:
-        echo "Here be symbols! -" & nimfile.string
-
-      else:
-        discard
+      n.scan(data)

@@ -6,6 +6,8 @@ import
     modulegraphs
   ]
 
+import std/[intsets]
+
 type
   Module* = ref object of TPassContext
     sym*: PSym
@@ -13,3 +15,11 @@ type
 
   ModuleList* = ref object of RootObj
     modules*: seq[Module]
+
+  Collected*[T] = object
+    marker*: IntSet
+    data*: seq[T]
+
+  Data* = object
+    syms*:  Collected[PSym]
+    types*: Collected[PType]
