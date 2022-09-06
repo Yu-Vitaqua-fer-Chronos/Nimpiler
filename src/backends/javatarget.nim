@@ -34,6 +34,8 @@ proc toJava*(graph:ModuleGraph, mlist:ModuleList) =
   var mainMethod = newJavaMethodDeclaration("main", "void", true, true)
   javaclass.addClassMethod(mainMethod)
 
+  mainMethod.addMethodArgument("String[]", "args")
+
   for m in mlist.modules.items:
     if m == nil:
       continue
