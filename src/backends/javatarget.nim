@@ -24,38 +24,8 @@ import
   ]
 
 
-proc nodehandler(collectedSyms:var Table[string, seq[PSym]], file:AbsoluteFile, n:PNode) =
-  case n.kind
-  of nkCharLit:
-    discard
-
-  of nkIntLit..nkUInt64Lit:
-    discard
-
-  of nkFloatLit..nkFloat128Lit:
-    discard
-
-  of nkStrLit..nkTripleStrLit:
-    discard
-
-  of nkSym:
-    if n.sym notin collectedSyms[file.string]:
-      collectedSyms[file.string].add(n.sym)
-
-  of nkIdent:
-    discard
-
-  of nkEmpty:
-    discard
-
-  else:
-    for son in n.sons:
-      nodehandler(collectedSyms, file, son)
-
-
 proc toJava*(graph:ModuleGraph, mlist:ModuleList) =
   var data = Data()
-  var collectedSyms:Table[string, seq[PSym]]
 
   for m in mlist.modules.items:
     if m == nil:
@@ -70,12 +40,6 @@ proc toJava*(graph:ModuleGraph, mlist:ModuleList) =
 
       n.scan(data)
 
-      nodehandler(collectedSyms, nimfile, n)
 
-  var total = 0
-  for key in collectedSyms.keys:
-    echo "Collected symbols from `", key, "`: ", collectedSyms[key].len
-    total += collectedSyms[key].len
 
-  echo "My collected symbols: ", total
   echo "Other collected symbols: ", data.syms.data.len
