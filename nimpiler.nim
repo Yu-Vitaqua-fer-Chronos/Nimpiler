@@ -28,40 +28,6 @@ import src/backends/javatarget
 
 # import serialiser
 
-proc myOpen(graph: ModuleGraph; s: PSym; idgen: IdGenerator): PPassContext =
-  ## Called when a new module starts parsing/processing. Note that multiple
-  ## modules can start processing before one of them is closed. `s` is the
-  ## symbol of the module.
-
-  # create a context object for the module. Each further processing of the
-  # module in question will get this object passed to it
-  result = Module(sym: s)
-
-  # register the module in the list
-  ModuleList(graph.backend).modules.add Module(result)
-
-proc myProcess(b: PPassContext, n: PNode): PNode =
-  ## Called when a top-level statement or declaration is parsed. `n` is the
-  ## input node. Each pass' input is the output of the previous pass.
-  ## In case of the first pass (usually semantic ananlysis) this input is the
-  ## parser output.
-
-  # we're the last processing step and we're also only collecting - just
-  # return the input
-  result = n
-
-  # append the node to the module
-  Module(b).nodes.add(n)
-
-proc myClose(graph: ModuleGraph; b: PPassContext, n: PNode): PNode =
-  ## Called when a module has finished parsing and processing
-
-  # process the final node
-  result = myProcess(b, n)
-
-# wrap the procedures into a ``TPass`` object that we can then register
-const collectPass = makePass(myOpen, myProcess, myClose)
-
 proc mainCommand(graph: ModuleGraph) =
   # the order in which the passes are registered dictates in which order
   # they're invoked.
@@ -70,32 +36,17 @@ proc mainCommand(graph: ModuleGraph) =
   registerPass graph, verbosePass # <- not strictly necessary - only used for logging
   registerPass graph, semPass
 
-  registerPass graph, collectPass # register the collection pass
+  registerPass graph, javaPass # register the java pass
 
   # setup the object in which all processed modules are collected:
   let mlist = ModuleList()
   graph.backend = mlist
 
+
   # run the compilation. The pass callbacks are invoked from there:
   compileProject(graph)
 
   let conf = graph.config
-
-  echo ""
-
-  # we now have access to each semantically analysed statement and declaration
-  # for each processed module. Do note that the AST is in the raw semantically
-  # analysed form - it is not transformed (see ``transf``) nor was it
-  # processed by ``injectdestructors`` (so no ARC/ORC)
-
-  # var fs = newFileStream("output.msgpack", fmWrite)
-
-  # serialise(fs, graph, mlist)
-
-  # fs.close()
-
-  if conf.command == "java":
-    toJava(graph, mlist)
 
 
 proc hardcodeJava(pass: TCmdLinePass, cmd: string; config: ConfigRef) =
