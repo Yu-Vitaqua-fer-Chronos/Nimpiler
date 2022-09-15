@@ -8,24 +8,25 @@ This was made with the goal to make Nim truely portable to many other programmin
 ### Language Targets
 Current languages we are planning on creating targets for:
 
- * Lua 5.1
-   * 5.1 specifically because ComputerCraft (A minecraft mod) and a few other games use Lua 5.1 for scripting!
+ * Lua
+   * Lua 5.1 specifically because ComputerCraft (A minecraft mod) and a few other games use Lua 5.1 for scripting (since they don't have gotos)!
 
  * Python
    * This would be more of a low-priority goal to see how flexible it is
 
- * Java
-   * Now this, THIS is the real beast, the goal of this would be to attempt to make a Java backend for Nim that intergrates decently with other Java libraries, and for using Nim to make a Java library itself.
-     * This will definitely be harder than the others, but would be amazing to pull off!
-     * This is also likely to be the first/main target to be focused on, as in our opinion, it shouldn't be too hard in some ways? Such as Java having pre-existing function overloading.
+ * JVM
+   * Welp we scrapped the Java backend. We're now gonna make a general JVM backend by using `Jasmin`, a 'Java Assembler Interface', which will allow us to make a JVM backend without selling our soul (In theory)!
+   * During my time learning stuff, I've also realised that converting Nim semantics to the JVM will be hell... So fun!
 
-Once a target is in a semi-usable state we will cross off the language name!
+Once a target is in a semi-usable state we will cross off the backend name!
 
 ### QoL Improvements
  * I think providing a way to keep module names included, as well as the version of the compiler/library should be added, as it'd allow backends to implement their own stdlib implementation for it, though ideally anything pure Nim *should* work!
  * "You first traverse all the top-level statements/declaration and collect the symbols and types referenced by them. Then you traverse all types and symbols and collect the symbols and types referenced by them." relating to handling getting all references and stuff
 
 ## Notes
+WE ARE NOT ENDORSED OR PROMOTED BY JASMIN, THE LICENSE CAN BE FOUND AT `LICENSES/JASMIN.txt`!
+
 This is currently a heavy W.I.P, code is uploaded as a backup for now tbh.
 
 ## Acknowledgements

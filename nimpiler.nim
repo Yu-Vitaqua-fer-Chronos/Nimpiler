@@ -3,7 +3,7 @@ when not defined(nimcore):
 
 import
   compiler/ast/[
-    ast_idgen, reports, idents
+    idents
   ],
   compiler/front/[
     msgs, cmdlinehelper, options, commands, cli_reporter
@@ -18,15 +18,12 @@ import
     pathutils
   ],
   std/[
-    os, streams
+    os
   ]
 
-import std/[os, parseopt, streams]
-
 import src/typedefinitions
-import src/backends/javatarget
-
-# import serialiser
+import src/backends/collect
+import src/backends/jvm/jasmin
 
 proc mainCommand(graph: ModuleGraph) =
   # the order in which the passes are registered dictates in which order
@@ -36,10 +33,11 @@ proc mainCommand(graph: ModuleGraph) =
   registerPass graph, verbosePass # <- not strictly necessary - only used for logging
   registerPass graph, semPass
 
-  registerPass graph, javaPass # register the java pass
+  # register the collection pass, this will collect alive code only! Thank you Zerbina!
+  registerPass graph, collectPass
 
   # setup the object in which all processed modules are collected:
-  let mlist = ModuleList()
+  let mlist = ModuleListRef()
   graph.backend = mlist
 
 
@@ -47,6 +45,9 @@ proc mainCommand(graph: ModuleGraph) =
   compileProject(graph)
 
   let conf = graph.config
+
+  generateCode(graph)
+
 
 
 proc hardcodeJava(pass: TCmdLinePass, cmd: string; config: ConfigRef) =
@@ -68,7 +69,7 @@ proc handleCmdLine(cache: IdentCache; conf: ConfigRef) =
   )
   # Unconditionally enable some ``define``s:
   self.initDefinesProg(conf, "nimpiler")
-  self.initDefinesProg(conf, "java")
+  self.initDefinesProg(conf, "jvm")
 
   # Use the Nimskull path cloned locally
   conf.libpath = (getAppDir() / "modules" / "nimskull" / "lib").toAbsoluteDir
