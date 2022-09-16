@@ -40,6 +40,8 @@ proc genMagic(ctx: var GenCtx, m: TMagic, callExpr: PNode): bool =
   case m
   of mAddI:
     discard
+  of mEcho:
+    echo callExpr.sym.name.s
   else:
     discard
 
@@ -49,7 +51,6 @@ proc genCall(ctx: var GenCtx, n: PNode) =
 
   # generate code for call:
   # ...
-  echo n[0].sym.name.s
 
 proc gen(ctx: var GenCtx, n: PNode) =
   ## Generate code for the expression or statement `n`
