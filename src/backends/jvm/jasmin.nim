@@ -49,6 +49,7 @@ proc genCall(ctx: var GenCtx, n: PNode) =
 
   # generate code for call:
   # ...
+  echo n[0].sym.name.s
 
 proc gen(ctx: var GenCtx, n: PNode) =
   ## Generate code for the expression or statement `n`
@@ -113,10 +114,12 @@ proc generateCode*(g: ModuleGraph) =
       # a valid list entry -> skip them
       continue
 
+    #[
     if m.sym.owner != nil and m.sym.owner.kind == skPackage and m.sym.owner.name.s == "stdlib":
       # skip modules that are part of the stdlib (this includes ``system``!)
       # only here for development purposes really, ideally this should work with everything!
       continue
+    ]#
 
     var fn = toFilename(g.config, m.sym.position.FileIndex)
 
