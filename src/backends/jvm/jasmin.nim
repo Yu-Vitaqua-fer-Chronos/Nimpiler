@@ -1,3 +1,12 @@
+## A heavily thinned down version of the ``compiler/vm/vmbackend`` module
+## with some tweaks plus the skeleton of a recursive code-generator that
+## only traverses alive code and *procedures* (the special handling required
+## for ``method``s is not present).
+##
+## The ``collectPass`` needs to be registered before calling
+## ``compileProject``. After ``compileProject`` finished, ``generateCode``
+## needs to be called.
+
 import
   std/[
     sets, os, strutils, unicode
@@ -23,8 +32,7 @@ import ../../utils
 import ./jvmtypes
 
 
-proc gen(ctx: var GenCtx, n: PNode)  # Forward declaration
-
+proc gen(ctx: var GenCtx, n: PNode)
 
 proc genProc(ctx: var GenCtx, s: PSym) =
   assert s.kind in routineKinds
@@ -37,19 +45,22 @@ proc genMagic(ctx: var GenCtx, m: TMagic, callExpr: PNode): bool =
   ## Returns 'false' if no special handling is used and a default function
   ## call is to be emitted instead
   # implement special handling for calls to magics here...
+  result = true
+
   case m
   of mAddI:
-    discard
+    echo "Addition magic!"
   of mEcho:
-    echo callExpr.sym.name.s
+    echo "Echo magic!"
   else:
-    discard
+    echo "magic not implemented: ", m
+    result = false
 
 proc genCall(ctx: var GenCtx, n: PNode) =
   # generate code for the callee:
   gen(ctx, n[0])
 
-  # generate code for call:
+  # generate code for the call:
   # ...
 
 proc gen(ctx: var GenCtx, n: PNode) =
@@ -63,7 +74,7 @@ proc gen(ctx: var GenCtx, n: PNode) =
       genProc(ctx, s)
     else:
       # handling of other symbol kinds here...
-      discard
+      echo "implementation missing for: ", s.kind
 
   of nkCall:
     if n[0].kind == nkSym:
@@ -85,9 +96,24 @@ proc gen(ctx: var GenCtx, n: PNode) =
       # indirect call
       genCall(ctx, n)
 
-  else:
-    # code-generator logic here...
+  of routineDefs, nkTypeSection, nkTypeOfExpr, nkCommentStmt, nkIncludeStmt,
+      nkImportStmt, nkImportExceptStmt, nkExportStmt, nkExportExceptStmt,
+      nkFromStmt, nkStaticStmt:
+    # ignore declarative nodes, e.g. routine definitions, import statments, etc.
     discard
+
+  of nkLiterals:
+    # logic for literals goes here...
+    echo "Implementation missing for: ", n.kind
+
+  else:
+    # each node kind needs it's own visitor logic, but to help with
+    # prototyping, nodes for which none is implemented yet simply visit their
+    # children (if any)
+    # ``safeLen`` is used because the node might be a leaf node
+    echo "Unimplemented node: ", n.kind
+    for i in 0..<n.safeLen:
+      gen(ctx, n[i])
 
 proc generateTopLevelStmts(ctx: var GenCtx, m: Module) =
   let
@@ -115,12 +141,10 @@ proc generateCode*(g: ModuleGraph) =
       # a valid list entry -> skip them
       continue
 
-    #[
     if m.sym.owner != nil and m.sym.owner.kind == skPackage and m.sym.owner.name.s == "stdlib":
       # skip modules that are part of the stdlib (this includes ``system``!)
-      # only here for development purposes really, ideally this should work with everything!
+      # only here for development purposes really, ideally this should work with most things!
       continue
-    ]#
 
     var fn = toFilename(g.config, m.sym.position.FileIndex)
 
