@@ -1,4 +1,5 @@
+--path:"modules/jnim"
 --path:"modules/codegenlib/src"
---path:"$nim"
+--path:"modules/nimskull"
 --define:nimcore
 --define:useNodeIds

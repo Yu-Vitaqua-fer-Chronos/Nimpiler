@@ -48,8 +48,7 @@ proc myProcess(b: PPassContext, n: PNode): PNode =
   result = n
   let m = ModuleRef(b)
 
-  if n.kind == nkStmtList:
-    m.list.modules[m.index].stmts.add(n)
+  m.list.modules[m.index].stmts.add(n)
 
 
 proc myClose(graph: ModuleGraph; b: PPassContext, n: PNode): PNode =

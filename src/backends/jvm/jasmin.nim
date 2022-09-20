@@ -9,7 +9,7 @@
 
 import
   std/[
-    sets, os, strutils, unicode
+    sets, os, osproc, strutils, unicode, options, sequtils
   ],
   compiler/ast/[
     ast,
@@ -29,8 +29,62 @@ import
 import ../../typedefinitions
 import ../../utils
 
-import ./jvmtypes
+import jnim
 
+type Method* = object
+  accessModifiers*: string[seq] # public, private, protected, static, final, synchronized, native, abstract
+  name*: string                 # constructors are `<init>`
+  arguments*: seq[string]       # Types, such as `[Ljava/lang/String;` for a string array ## ]
+  stackCounter: int             # Counts how many items should be on the stack, this is just an internal counter
+  body*: seq[string]            # The same as `statements`, `return`s aren't implicit in Jasmin
+  variables*: seq[string]       # Kept here so we can turn mangled names into integers for accessing variables
+
+type Field* = object
+  accessModifiers*: string[seq] # public, private, protected, static, final, volatile, transient
+  name*: string                 # Name of the field
+  typ*: string                  # Descriptor is the same as type
+  value*: Option[string]        # Value, value is optional
+
+type Class* = object
+  accessModifiers*: string[seq] # public, final, super, interface, abstract
+  name*: string                 # The name of the class
+  super*: string                # The base class, by default this should be `java/lang/Object`
+  implements*: seq[string]      # Unless we're interacting with JVM code, this should be empty
+  methods*: seq[Method]         # All methods in the class body
+  fields*: seq[Field]           # All fields in the class body
+
+
+proc construct(c: Class): string =
+  result &= ".class " & c.accessModifiers.join(" ") & " " & c.name & "\n"
+  result &= ".super " & c.super & "\n"
+
+  for i in c.implements:
+    result &= ".implements " & i & "\n"
+
+  for field in c.fields:
+    result &= ".field " & field.accessModifiers.join(" ") & " " & field.name & " " & field.typ
+    if field.value.isSome():
+      result &= " = " & field.value.get()
+
+  for method in c.methods:
+    result &= ""
+
+
+
+var files:seq[string] = @["output/source/HelloWorld.j"]
+
+# Just a test
+var code = """.class public HelloWorld
+.super java/lang/Object
+
+.method public <init>()V
+    aload_0
+    invokenonvirtual java/lang/Object/<init>()V
+    return
+.end method
+
+.method public static main([Ljava/lang/String;)V
+"""
 
 proc gen(ctx: var GenCtx, n: PNode)
 
@@ -51,7 +105,13 @@ proc genMagic(ctx: var GenCtx, m: TMagic, callExpr: PNode): bool =
   of mAddI:
     echo "Addition magic!"
   of mEcho:
-    echo "Echo magic!"
+    code &= ".limit stack 2\n" &
+      "getstatic java/lang/System/out Ljava/io/PrintStream;\n"
+
+    for son in callExpr.sons.items:
+      gen(ctx, son) # To unwrap the node
+
+    code &= "invokevirtual java/io/PrintStream/println(Ljava/lang/String;)V\n"
   else:
     echo "magic not implemented: ", m
     result = false
@@ -62,6 +122,7 @@ proc genCall(ctx: var GenCtx, n: PNode) =
 
   # generate code for the call:
   # ...
+  echo n.kind
 
 proc gen(ctx: var GenCtx, n: PNode) =
   ## Generate code for the expression or statement `n`
@@ -74,9 +135,9 @@ proc gen(ctx: var GenCtx, n: PNode) =
       genProc(ctx, s)
     else:
       # handling of other symbol kinds here...
-      echo "implementation missing for: ", s.kind
+      echo "Implementation missing for: ", s.kind
 
-  of nkCall:
+  of nkCallKinds:
     if n[0].kind == nkSym:
       let s = n[0].sym
 
@@ -103,8 +164,13 @@ proc gen(ctx: var GenCtx, n: PNode) =
     discard
 
   of nkLiterals:
-    # logic for literals goes here...
-    echo "Implementation missing for: ", n.kind
+    case n.kind
+    of nkStrLit..nkTripleStrLit:
+      code &= "ldc " & n.strVal.escape() & "\n"
+    of nkIntLit..nkUInt64Lit:
+      code &= "ldc " & $n.intVal & "\n"
+    else:
+      echo "Implementation missing for: ", n.kind
 
   else:
     # each node kind needs it's own visitor logic, but to help with
@@ -155,5 +221,25 @@ proc generateCode*(g: ModuleGraph) =
 
     ctx.idgen = m.idgen # use the IdGenerator of the module
 
-    "output".createDir
+    "output/source".createDir
+    "output/compiled".createDir
     generateTopLevelStmts(ctx, m)
+
+    code &= "return\n.end method"
+
+    writeFile("output/source/HelloWorld.j", code)
+
+    let path = findJVM()
+    if path.isSome:
+      let bin = path.get().root / "bin" / "java"
+
+      let jasminPath = getAppDir() / "src" / "backends" / "jvm" / "jasmin.jar"
+
+      var arguments = @["-jar", jasminPath, "-d", "output"/"compiled"]
+
+      for file in files:
+        arguments.add file
+
+      discard execProcess(bin, options={poStdErrToStdOut}, args=arguments)
+    else:
+      echo "The Jasmin source code couldn't be compiled! Is your java installation on the PATH?"
