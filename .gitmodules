@@ -4,3 +4,6 @@
 [submodule "modules/nimskull"]
 	path = modules/nimskull
 	url = https://github.com/nim-works/nimskull
+[submodule "modules/jnim"]
+	path = modules/jnim
+	url = https://github.com/yglukhov/jnim
