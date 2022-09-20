@@ -2,16 +2,12 @@
 # It's from the vmgen pass but stripped of the meat and stuff-
 
 import
-  std/[
-    sets
-  ],
   compiler/ast/[
     ast,
     ast_types
   ],
   compiler/sem/[
-    passes,
-    transf
+    passes
   ],
   compiler/modules/[
     modulegraphs

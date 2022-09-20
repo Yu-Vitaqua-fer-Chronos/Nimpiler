@@ -36,6 +36,8 @@ type
     graph*: ModuleGraph
     idgen*: IdGenerator
 
+    depth*: int # Only so we know if the code should be in the main method or not
+
   Collected*[T] = object
     marker*: IntSet
     data*: seq[T]
