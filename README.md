@@ -20,6 +20,10 @@ Current languages we are planning on creating targets for:
 
 Once a target is in a semi-usable state we will cross off the backend name!
 
+### To-Do
+Focusing on the JVM backend currently, we NEED to make it so the API for creating instructions and such are *way* better than they are currently.
+Right now they're... Usable, but clunky and make us do most of the work. Ideally we wouldn't need to even worry about this.
+
 ### QoL Improvements
  * I think providing a way to keep module names included, as well as the version of the compiler/library should be added, as it'd allow backends to implement their own stdlib implementation for it, though ideally anything pure Nim *should* work!
  * "You first traverse all the top-level statements/declaration and collect the symbols and types referenced by them. Then you traverse all types and symbols and collect the symbols and types referenced by them." relating to handling getting all references and stuff
