@@ -23,7 +23,7 @@ import
 
 import src/typedefinitions
 import src/backends/collect
-import src/backends/jvm/jasmin
+import src/backends/jvm/jasmin/compile as jasmin
 
 proc mainCommand(graph: ModuleGraph) =
   # the order in which the passes are registered dictates in which order
@@ -53,9 +53,9 @@ proc mainCommand(graph: ModuleGraph) =
 proc hardcodeJava(pass: TCmdLinePass, cmd: string; config: ConfigRef) =
   processCmdLine(pass, cmd, config)
 
-  # Hardcode java backend for now
+  # Hardcode jasmin backend for now
   if config.commandArgs.len == 0: config.commandArgs = @[config.command]
-  config.command = "java"
+  config.command = "jasmin"
   config.commandLine = config.command & config.commandLine
   config.projectName = config.commandArgs[0]
   config.projectFull = config.projectName.AbsoluteFile
@@ -69,7 +69,7 @@ proc handleCmdLine(cache: IdentCache; conf: ConfigRef) =
   )
   # Unconditionally enable some ``define``s:
   self.initDefinesProg(conf, "nimpiler")
-  self.initDefinesProg(conf, "jvm")
+  self.initDefinesProg(conf, "jasmin")
 
   # Use the Nimskull path cloned locally
   conf.libpath = (getAppDir() / "modules" / "nimskull" / "lib").toAbsoluteDir
@@ -87,7 +87,7 @@ proc handleCmdLine(cache: IdentCache; conf: ConfigRef) =
   # reachable/accessible from there
   var graph = newModuleGraph(cache, conf)
 
-  # detect and process all relevant config files (including NimScript ones)
+  # detect and process all relevant config files (including Nimscript ones)
   # and reprocess the command line
   if not self.loadConfigsAndProcessCmdLine(cache, conf, graph):
     return

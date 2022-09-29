@@ -26,111 +26,22 @@ import
     msgs
   ]
 
-import ../../typedefinitions
-import ../../utils
+import ../../../typedefinitions as gendefs
+import ../../../utils
 
-import jnim
+import ./typedefinitions as jasdefs
+
+import jnim # Only used for finding the JVM
 
 template addAll[T](sequence: seq[T], values: varargs[T]) =
   for val in values:
     sequence.add val
 
-type
-  Snippet* = ref object
-    code*: string  # The line of code as a string
-    indent*: int   # The amount of times to indent the instruction
-
-  Method* = object
-    accessModifiers*: seq[string] # public, private, protected, static, final, synchronized, native, abstract
-    name*: string                 # constructors are `<init>`
-    arguments*: seq[string]       # Types, such as `[Ljava/lang/String;` for a string array ## ]
-    throws*: seq[string]          # Not necessary but recommended for good Java interop
-    body*: seq[Snippet]           # The same as `statements`, `return`s aren't implicit in Jasmin
-    variables*: seq[string]       # Kept here so we can turn names into integers for accessing variables
-    stackCounter: int             # Counts how many items should be on the stack, this is just an internal counter
-
-  Field* = object
-    accessModifiers*: seq[string] # public, private, protected, static, final, volatile, transient
-    name*: string                 # Name of the field
-    typ*: string                  # Descriptor is the same as type
-    value*: Option[string]        # Value, value is optional
-
-  Class* = object
-    accessModifiers*: seq[string] # public, final, super, interface, abstract
-    name*: string                 # The name of the class
-    super*: string                # The base class, by default this should be `java/lang/Object`
-    implements*: seq[string]      # Unless we're interacting with JVM code, this should be empty
-    methods*: seq[Method]         # All methods in the class body
-    fields*: seq[Field]           # All fields in the class body
-
-
-proc getMethod(c: Class, name: string, args: seq[string]): ref Method =
-  result = nil
-
-  for mthd in c.methods:
-    if mthd.name == name and mthd.arguments == args:
-      result = ref mthd
-
-
-proc `$`*(c: Class): string =
-  result &= ".class " & c.accessModifiers.join(" ") & " " & c.name & "\n"
-  result &= ".super " & c.super & "\n"
-
-  for i in c.implements:
-    result &= ".implements " & i & "\n"
-
-  for field in c.fields:
-    result &= ".field " & field.accessModifiers.join(" ") & " " & field.name & " " & field.typ
-    if field.value.isSome():
-      result &= " = " & field.value.get()
-    result &= "\n"
-
-  for mthd in c.methods:
-    result &= ".method " & mthd.accessModifiers.join(" ") & " " & mthd.name & "(" & mthd.arguments.join(" ")
-    result &= ")V\n"
-
-    result &= ".limit stack " & mthd.stackCounter & "\n\n"
-
-    if mthd.throws.len != 0:
-      for exception in mthd.throws:
-        result &= "  .throws " & exception & "\n"
-
-      result &= "\n"
-
-    for snippet in mthd.body:
-      result &= repeat("  ", snippet.indent) & snippet.code & "\n"
-
-    result &= ".end method\n\n"
-
-
-template construct*(c: Class): string = $c
-
 var files:seq[string] = @["output/source/HelloWorld.j"]
 
-var HelloWorld = Class(
-  accessModifiers: @["public"],
-  name: "HelloWorld",
-  super: "java/lang/Object",
-  implements: newSeq[string](0)
-)
+proc gen(ctx: var JasminCtx, n: PNode)
 
-var init = Method(
-  accessModifiers: @["public"],
-  name: "<init>",
-  arguments: @["[Ljava/lang/String;"],
-  stackCounter: 0
-)
-
-init.body.addAll
-  Snippet(indent: 1, code: "aload_0"),
-  Snippet(indent: 1, code: "invokenonvirtual java/lang/Object/<init>()V"),
-  Snippet(indent: 1, code: "return")
-
-HelloWorld.methods.add init
-
-proc gen(ctx: var GenCtx, n: PNode)
-
-proc genProc(ctx: var GenCtx, s: PSym) =
+proc genProc(ctx: var JasminCtx, s: PSym) =
   ctx.depth += 1
   assert s.kind in routineKinds
   # only generate code for the procedure once
@@ -139,7 +50,7 @@ proc genProc(ctx: var GenCtx, s: PSym) =
     gen(ctx, body)
   ctx.depth -= 1
 
-proc genMagic(ctx: var GenCtx, m: TMagic, callExpr: PNode): bool =
+proc genMagic(ctx: var JasminCtx, m: TMagic, callExpr: PNode): bool =
   ## Returns 'false' if no special handling is used and a default function
   ## call is to be emitted instead
   # implement special handling for calls to magics here...
@@ -149,23 +60,24 @@ proc genMagic(ctx: var GenCtx, m: TMagic, callExpr: PNode): bool =
   of mAddI:
     echo "Addition magic!"
   of mEcho:
-    code &= ".limit stack 2\n" &
-      "getstatic java/lang/System/out Ljava/io/PrintStream;\n"
+    ctx.cmthd.body.add Snippet(code: "getstatic java/lang/System/out Ljava/io/PrintStream;", indent: 1)
+    ctx.cmthd.stackCounter += 1
 
     for son in callExpr.sons.items:
       gen(ctx, son) # To unwrap the node
 
-    code &= "invokevirtual java/io/PrintStream/println(Ljava/lang/String;)V\n"
+    ctx.cmthd.body.add Snippet(code: "invokevirtual java/io/PrintStream/println(Ljava/lang/String;)V\n",
+      indent: 1)
   else:
     echo "magic not implemented: ", m
     result = false
 
-proc genCall(ctx: var GenCtx, n: PNode) =
+proc genCall(ctx: var JasminCtx, n: PNode) =
   # generate code for the call:
   # ...
   echo n.kind
 
-proc gen(ctx: var GenCtx, n: PNode) =
+proc gen(ctx: var JasminCtx, n: PNode) =
   ## Generate code for the expression or statement `n`
   case n.kind
   of nkSym:
@@ -207,10 +119,12 @@ proc gen(ctx: var GenCtx, n: PNode) =
   of nkLiterals:
     case n.kind
     of nkStrLit..nkTripleStrLit:
-      code &= "ldc " & n.strVal.escape() & "\n"
+      ctx.cmthd.body.add Snippet(code: "ldc " & n.strVal.escape(), indent: 1)
+      ctx.cmthd.stackCounter += 1
 
     of nkIntLit..nkUInt64Lit:
-      code &= "bipush " & $n.intVal & "\n"
+      ctx.cmthd.body.add Snippet(code: "bipush " & $n.intVal, indent: 1)
+      ctx.cmthd.stackCounter += 1
 
     else:
       echo "Implementation missing for: ", n.kind
@@ -224,7 +138,7 @@ proc gen(ctx: var GenCtx, n: PNode) =
     for i in 0..<n.safeLen:
       gen(ctx, n[i])
 
-proc generateTopLevelStmts(ctx: var GenCtx, m: Module) =
+proc generateTopLevelStmts(ctx: var JasminCtx, m: Module) =
   let
     # for simplicity, merge all statments into a single one
     stmts = newTree(nkStmtList, m.stmts)
@@ -234,9 +148,15 @@ proc generateTopLevelStmts(ctx: var GenCtx, m: Module) =
   # note: ``injectdestructors`` is not run, so destructors and lifetime-hooks
   #       won't work
 
-  HelloWorld.getMethod()
+  # Define current method
+  ctx.queueMthd Method(accessModifiers: @["public", "static"], name: "main",
+    arguments: @["[Ljava/lang/String;"]) # IDE ]
 
   gen(ctx, stmts)
+
+  ctx.cmthd.body.add Snippet(code: "return", indent: 1)
+  ctx.delMthd()
+
 
 proc generateCode*(g: ModuleGraph) =
   ## The backend's entry point
@@ -244,7 +164,36 @@ proc generateCode*(g: ModuleGraph) =
     mlist = g.backend.ModuleListRef
     conf = g.config
 
-  var ctx = GenCtx(graph: g)
+  # Our own Context, inherited from GenCtx so it can be used to store other need info
+  var ctx = JasminCtx(graph: g)
+
+  # TODO: Make class generation automatic
+  ctx.ccls = Class(
+    accessModifiers: @["public"],
+    name: "HelloWorld",
+    super: "java/lang/Object",
+    implements: newSeq[string](0)
+  )
+
+  # TODO: Make it so we can create init methods and others, easier (as well as making it so Nim code can still
+  # TODO: follow Nim semantics)
+  var init = Method(
+    accessModifiers: @["public"],
+    name: "<init>"
+  )
+
+  # TODO: Look at a better way to do this?
+  init.body.addAll(
+    Snippet(indent: 1, code: "aload_0"),
+    Snippet(indent: 1, code: "invokenonvirtual java/lang/Object/<init>()V"),
+    Snippet(indent: 1, code: "return")
+  )
+
+  init.stackCounter += 1
+
+  # TODO: Possibly directly modify the method in the sequence instead of adding manually?
+  ctx.ccls.methods.add init
+  # Finish up initial class setup
 
   for m in mlist.modules.items:
     if m.sym == nil:
@@ -268,15 +217,16 @@ proc generateCode*(g: ModuleGraph) =
 
     "output/source".createDir
     "output/compiled".createDir
+
     generateTopLevelStmts(ctx, m)
 
-    writeFile("output/source/HelloWorld.j", $HelloWorld)
+    writeFile("output/source/HelloWorld.j", $ctx.ccls)
 
     let path = findJVM()
     if path.isSome:
       let bin = path.get().root / "bin" / "java"
 
-      let jasminPath = getAppDir() / "src" / "backends" / "jvm" / "jasmin.jar"
+      let jasminPath = getAppDir() / "src" / "backends" / "jvm" / "jasmin" / "compile.jar"
 
       var arguments = @["-jar", jasminPath, "-d", "output"/"compiled"]
 

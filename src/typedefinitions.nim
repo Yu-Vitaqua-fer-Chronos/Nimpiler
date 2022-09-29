@@ -30,13 +30,11 @@ type
     list*: ModuleListRef
     index*: int
 
-  GenCtx* = object
+  GenCtx* = object of RootObj # Inheritable as some backends may need to store other stuff here
     seensProcs*: HashSet[ItemId]
 
     graph*: ModuleGraph
     idgen*: IdGenerator
-
-    depth*: int # Only so we know if the code should be in the main method or not
 
   Collected*[T] = object
     marker*: IntSet

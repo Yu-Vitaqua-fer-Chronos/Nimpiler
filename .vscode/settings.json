@@ -1,0 +1,7 @@
+{
+    "nim.projectMapping": {
+        "projectFile": "nimpiler.nim",
+        "fileRegex": ".*\\.nim"
+    },
+    "nim.provider": "nimsuggest"
+}

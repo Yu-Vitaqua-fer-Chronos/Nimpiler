@@ -1,5 +1,6 @@
 --path:"modules/jnim"
 --path:"modules/codegenlib/src"
 --path:"modules/nimskull"
+--path:"modules/nimskull/lib" # Nimskull stdlib
 --define:nimcore
 --define:useNodeIds
