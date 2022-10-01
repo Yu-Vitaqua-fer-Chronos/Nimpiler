@@ -1,7 +1,9 @@
 import std/[
-  strutils
+  strutils,
+  options
 ]
 
+import ./typedefinitions
 import ./instructions
 
 # TODO: Add class verification (in terms of access modifier checking and such)
@@ -19,19 +21,25 @@ proc `$`*(c: Class): string =
     result &= "\n"
 
   for mthd in c.methods:
+    var indentCounter = 1
+    template indent() = result &= repeat("  ", indentCounter)
     result &= ".method " & mthd.accessModifiers.join(" ") & " " & mthd.name & "(" & mthd.arguments.join(" ")
     result &= ")V\n"
 
-    result &= "  .limit stack " & $mthd.stackCounter & "\n\n"
+    indent()
+    result &= ".limit stack " & $mthd.stackCounter & "\n\n"
 
     if mthd.throws.len != 0:
       for exception in mthd.throws:
-        result &= "  .throws " & exception & "\n"
+        indent()
+        result &= ".throws " & exception & "\n"
 
       result &= "\n"
 
     for snippet in mthd.body:
-      result &= repeat("  ", snippet.indent) & snippet.code & "\n"
+      indentCounter += snippet.indent
+      indent()
+      result &= snippet.code & "\n"
 
     result &= ".end method\n\n"
 

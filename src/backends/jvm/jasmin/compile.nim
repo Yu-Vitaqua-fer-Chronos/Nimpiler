@@ -30,6 +30,9 @@ import ../../../typedefinitions as gendefs
 import ../../../utils
 
 import ./typedefinitions as jasdefs
+import ./construction
+
+import ./instructions
 
 import jnim # Only used for finding the JVM
 
@@ -60,14 +63,11 @@ proc genMagic(ctx: var JasminCtx, m: TMagic, callExpr: PNode): bool =
   of mAddI:
     echo "Addition magic!"
   of mEcho:
-    ctx.cmthd.body.add Snippet(code: "getstatic java/lang/System/out Ljava/io/PrintStream;", indent: 1)
-    ctx.cmthd.stackCounter += 1
+    ctx.cmthd.getstatic("java/lang/System/out", "Ljava/io/PrintStream;")
 
     for son in callExpr.sons.items:
       gen(ctx, son) # To unwrap the node
-
-    ctx.cmthd.body.add Snippet(code: "invokevirtual java/io/PrintStream/println(Ljava/lang/String;)V\n",
-      indent: 1)
+    ctx.cmthd.invokevirtual("java/io/PrintStream/println(Ljava/lang/String;)V")
   else:
     echo "magic not implemented: ", m
     result = false
@@ -86,6 +86,11 @@ proc gen(ctx: var JasminCtx, n: PNode) =
     case s.kind
     of skProc, skFunc, skIterator, skConverter:
       genProc(ctx, s)
+
+    of skVar:
+      echo s.name.s
+      echo s.magic
+
     else:
       # handling of other symbol kinds here...
       echo "Implementation missing for: ", s.kind
@@ -119,15 +124,24 @@ proc gen(ctx: var JasminCtx, n: PNode) =
   of nkLiterals:
     case n.kind
     of nkStrLit..nkTripleStrLit:
-      ctx.cmthd.body.add Snippet(code: "ldc " & n.strVal.escape(), indent: 1)
-      ctx.cmthd.stackCounter += 1
+      ctx.cmthd.ldc(n.strVal)
 
     of nkIntLit..nkUInt64Lit:
-      ctx.cmthd.body.add Snippet(code: "bipush " & $n.intVal, indent: 1)
+      ctx.cmthd.sipush(n.intVal)
       ctx.cmthd.stackCounter += 1
 
     else:
       echo "Implementation missing for: ", n.kind
+
+  of nkStmtList: # Go through child nodes
+    for i in 0..<n.len:
+      gen(ctx, n[i])
+
+  of nkIdentDefs:
+    discard # Do work on this
+
+  of nkEmpty: # Empty nodes can be safely discarded
+    discard
 
   else:
     # each node kind needs it's own visitor logic, but to help with
@@ -154,7 +168,7 @@ proc generateTopLevelStmts(ctx: var JasminCtx, m: Module) =
 
   gen(ctx, stmts)
 
-  ctx.cmthd.body.add Snippet(code: "return", indent: 1)
+  ctx.cmthd.jreturn
   ctx.delMthd()
 
 
@@ -182,14 +196,9 @@ proc generateCode*(g: ModuleGraph) =
     name: "<init>"
   )
 
-  # TODO: Look at a better way to do this?
-  init.body.addAll(
-    Snippet(indent: 1, code: "aload_0"),
-    Snippet(indent: 1, code: "invokenonvirtual java/lang/Object/<init>()V"),
-    Snippet(indent: 1, code: "return")
-  )
-
-  init.stackCounter += 1
+  init.aload_0()
+  init.invokespecial("java/lang/Object/<init>()V")
+  init.jreturn
 
   # TODO: Possibly directly modify the method in the sequence instead of adding manually?
   ctx.ccls.methods.add init

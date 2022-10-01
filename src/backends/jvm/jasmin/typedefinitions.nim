@@ -21,6 +21,7 @@ type
     throws*: seq[string]          # Not necessary but recommended for good Java interop
     body*: seq[Snippet]           # The same as `statements`, `return`s aren't implicit in Jasmin
     variables*: seq[string]       # Kept here so we can turn names into integers for accessing variables
+    localsCounter*: int           # Keeps count of all the variables used within the code, possibly redundant?
     stackCounter*: int            # Counts how many items should be on the stack, this is just an internal counter
 
   Field* = object
