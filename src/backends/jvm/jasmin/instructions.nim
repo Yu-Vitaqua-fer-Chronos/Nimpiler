@@ -6,6 +6,8 @@ import ./typedefinitions
 
 # TODO: Rename methods (or make aliases) with better names
 
+type InvalidJVMTypeDefect* = object of Defect
+
 # Primitive types only, we can work on something for other types later
 proc storeVar*(mthd: var Method, typ: typedesc[int] | typedesc[string] | typedesc[float]) = 
 
@@ -30,6 +32,8 @@ proc sipush*(mthd: var Method, integer: int) =
 # `i` means `int`
 # `l` means `long`
 
+# Doubles and longs take up two spaces on the stack so increment by two there
+
 # Abstract these away, these are *internal* details
 proc aload*(mthd: var Method, varNum: int) =
   mthd.stackCounter += 1
@@ -39,7 +43,7 @@ proc astore*(mthd: var Method, varNum: int) =
   mthd.body.add Snippet(code: fmt"astore {varNum}", indent: 0)
 
 proc dload*(mthd: var Method, varNum: int) =
-  mthd.stackCounter += 1
+  mthd.stackCounter += 2
   mthd.body.add Snippet(code: fmt"dload {varNum}", indent: 0)
 
 proc dstore*(mthd: var Method, varNum: int) =
@@ -60,7 +64,7 @@ proc istore*(mthd: var Method, varNum: int) =
   mthd.body.add Snippet(code: fmt"istore {varNum}", indent: 0)
 
 proc lload*(mthd: var Method, varNum: int) =
-  mthd.stackCounter += 1
+  mthd.stackCounter += 2
   mthd.body.add Snippet(code: fmt"lload {varNum}", indent: 0)
 
 proc lstore*(mthd: var Method, varNum: int) =
@@ -173,3 +177,30 @@ proc putfield*(mthd: var Method, fieldSpec, descriptor: string) =
 proc putstatic*(mthd: var Method, fieldSpec, descriptor: string) =
   mthd.body.add Snippet(code: fmt"putstatic {fieldSpec} {descriptor}", indent: 0)
 
+
+
+#[ Array-related instructions ]#
+
+proc newarray*(mthd: var Method,
+  typ: typedesc[int] | typedesc[int8] | typedesc[int16] | typedesc[int32] | typedesc[int64] |
+  typedesc[float] | typedesc[float32] | typedesc[float64]) =
+  var arrayType = ""
+
+  # Note that shorts don't exist on a JVM level
+  if (typ is typedesc[int]) or (typ is typedesc[int8]) or
+    (typ is typedesc[int16]):
+    arrayType = "short"
+  elif typ is typedesc[int32]:
+    arrayType = "int"
+  elif typ is typedesc[int64]:
+    arrayType = "double"
+  elif (typ is typedesc[float]) or (typ is typedesc[float32])
+    arrayType = "float"
+  elif typ is typedesc[float64]:
+    arrayType = "long"
+  else:
+    raise newException(InvalidJVMTypeDefect, fmt"{typ} isn't a valid JVM type!")
+
+  mthd.body.add Snippet(code: fmt"newarray {arrayType}", indent: 0)
+
+proc multianewarray*()
