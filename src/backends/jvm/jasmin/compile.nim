@@ -67,6 +67,7 @@ proc genMagic(ctx: var JasminCtx, m: TMagic, callExpr: PNode): bool =
 
     for son in callExpr.sons.items:
       gen(ctx, son) # To unwrap the node
+
     ctx.cmthd.invokevirtual("java/io/PrintStream/println(Ljava/lang/String;)V")
   else:
     echo "magic not implemented: ", m
@@ -88,8 +89,17 @@ proc gen(ctx: var JasminCtx, n: PNode) =
       genProc(ctx, s)
 
     of skVar:
-      echo s.name.s
-      echo s.magic
+      case s.astdef.kind
+      of nkStrLit..nkTripleStrLit:
+        ctx.cmthd.storeVar(s.name.s, "java/lang/String")
+
+      of nkIntLit..nkUInt64Lit:
+        ctx.cmthd.storeVar(s.name.s, "I") # Currently this doesn't allow for duplicate names, we need to fix that
+        ctx.cmthd.sipush(s.astdef.intVal)
+        ctx.cmthd.istore(ctx.cmthd.variables.find(s.name.s))
+
+      else:
+        echo "Implementation missing for variable def: ", s.astdef.kind
 
     else:
       # handling of other symbol kinds here...
@@ -128,7 +138,6 @@ proc gen(ctx: var JasminCtx, n: PNode) =
 
     of nkIntLit..nkUInt64Lit:
       ctx.cmthd.sipush(n.intVal)
-      ctx.cmthd.stackCounter += 1
 
     else:
       echo "Implementation missing for: ", n.kind
@@ -138,7 +147,11 @@ proc gen(ctx: var JasminCtx, n: PNode) =
       gen(ctx, n[i])
 
   of nkIdentDefs:
-    discard # Do work on this
+    echo "Start of nkIdentDefs"
+    for i in 0..<n.len:
+      gen(ctx, n[i])
+    echo "End of nkIdentDefs"
+
 
   of nkEmpty: # Empty nodes can be safely discarded
     discard
@@ -163,8 +176,7 @@ proc generateTopLevelStmts(ctx: var JasminCtx, m: Module) =
   #       won't work
 
   # Define current method
-  ctx.queueMthd Method(accessModifiers: @["public", "static"], name: "main",
-    arguments: @["[Ljava/lang/String;"]) # IDE ]
+  ctx.queueMthd newMethod(@["public", "static"], "main", @["[Ljava/lang/String;"]) # IDE ]
 
   gen(ctx, stmts)
 
@@ -186,17 +198,13 @@ proc generateCode*(g: ModuleGraph) =
     accessModifiers: @["public"],
     name: "HelloWorld",
     super: "java/lang/Object",
-    implements: newSeq[string](0)
   )
 
   # TODO: Make it so we can create init methods and others, easier (as well as making it so Nim code can still
   # TODO: follow Nim semantics)
-  var init = Method(
-    accessModifiers: @["public"],
-    name: "<init>"
-  )
+  var init = newMethod(@["public"], "<init>")
 
-  init.aload_0()
+  init.aload(0)
   init.invokespecial("java/lang/Object/<init>()V")
   init.jreturn
 

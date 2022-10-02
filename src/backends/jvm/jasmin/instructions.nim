@@ -10,15 +10,25 @@ import ./typedefinitions
 
 type InvalidJVMTypeDefect* = object of Defect
 
+#[ Templates for repetitive use ]#
+template increaseLocalsCounter(mthd: var Method, varNum: int) =
+  if mthd.localsCounter < varNum:
+    mthd.localsCounter = varNum
+
+template singleByteLoadStoreInstruction(mthd: var Method, instr: string, varNum: int) =
+  if varNum < 4:
+    mthd.body.add Snippet(code: instr & "_" & $varNum)
+  else:
+    mthd.body.add Snippet(code: instr & " " & $varNum)
+
+
 #[ Non-instructions, these are 'shortcuts' to groups of instructions or ]#
 #[ are convinience methods ]#
-# Primitive types only, we can work on something for other types later
-proc storeVar*(mthd: var Method, name: string,
-  typ: typedesc[int] | typedesc[string] | typedesc[float]) =
+proc storeVar*(mthd: var Method, name: string, descriptor: string) =
   mthd.localsCounter += 1
   var varNum = mthd.variables.len
   mthd.variables.add name
-  mthd.body.add Snippet(code: fmt".var {varNum} is <name> <descriptor> from <label1> to <label2>", indent: 0)
+  mthd.body.add Snippet(code: fmt".var {varNum} is {name} {descriptor}", indent: 0) # from <label1> to <label2>
 
 # We shouldn't be using this tbh
 proc indent(mthd: var Method, increaseIndentBy: int=1) =
@@ -49,38 +59,63 @@ proc sipush*(mthd: var Method, integer: BiggestInt) =
 # Abstract these away, these are *internal* details
 proc aload*(mthd: var Method, varNum: int) =
   mthd.stackCounter += 1
-  mthd.body.add Snippet(code: fmt"aload {varNum}", indent: 0)
+
+  mthd.singleByteLoadStoreInstruction("aload", varNum)
+
+  mthd.increaseLocalsCounter(varNum)
 
 proc astore*(mthd: var Method, varNum: int) =
-  mthd.body.add Snippet(code: fmt"astore {varNum}", indent: 0)
+  mthd.singleByteLoadStoreInstruction("astore", varNum)
+
+  mthd.increaseLocalsCounter(varNum)
 
 proc dload*(mthd: var Method, varNum: int) =
   mthd.stackCounter += 2
-  mthd.body.add Snippet(code: fmt"dload {varNum}", indent: 0)
+
+  mthd.singleByteLoadStoreInstruction("dload", varNum)
+
+  mthd.increaseLocalsCounter(varNum)
 
 proc dstore*(mthd: var Method, varNum: int) =
-  mthd.body.add Snippet(code: fmt"dstore {varNum}", indent: 0)
+  mthd.singleByteLoadStoreInstruction("dstore", varNum)
+
+  mthd.increaseLocalsCounter(varNum)
 
 proc fload*(mthd: var Method, varNum: int) =
   mthd.stackCounter += 1
-  mthd.body.add Snippet(code: fmt"fload {varNum}", indent: 0)
+
+  mthd.singleByteLoadStoreInstruction("fload", varNum)
+
+  mthd.increaseLocalsCounter(varNum)
 
 proc fstore*(mthd: var Method, varNum: int) =
-  mthd.body.add Snippet(code: fmt"fstore {varNum}", indent: 0)
+  mthd.singleByteLoadStoreInstruction("fstore", varNum)
+
+  mthd.increaseLocalsCounter(varNum)
 
 proc iload*(mthd: var Method, varNum: int) =
   mthd.stackCounter += 1
-  mthd.body.add Snippet(code: fmt"iload {varNum}", indent: 0)
+
+  mthd.singleByteLoadStoreInstruction("iload", varNum)
+
+  mthd.increaseLocalsCounter(varNum)
 
 proc istore*(mthd: var Method, varNum: int) =
-  mthd.body.add Snippet(code: fmt"istore {varNum}", indent: 0)
+  mthd.singleByteLoadStoreInstruction("istore", varNum)
+
+  mthd.increaseLocalsCounter(varNum)
 
 proc lload*(mthd: var Method, varNum: int) =
   mthd.stackCounter += 2
-  mthd.body.add Snippet(code: fmt"lload {varNum}", indent: 0)
+
+  mthd.singleByteLoadStoreInstruction("lload", varNum)
+
+  mthd.increaseLocalsCounter(varNum)
 
 proc lstore*(mthd: var Method, varNum: int) =
-  mthd.body.add Snippet(code: fmt"lstore {varNum}", indent: 0)
+  mthd.singleByteLoadStoreInstruction("lstore", varNum)
+
+  mthd.increaseLocalsCounter(varNum)
 
 # Note: This is only for constants
 proc iinc*(mthd: var Method, varNum: int, amount: int) =
@@ -205,6 +240,7 @@ proc newarray*(mthd: var Method,
   var arrayType = ""
 
   # Note that shorts don't exist on a JVM level
+  # Note that we'll have to handle uint math ourselves... Not fun
   if (typ is typedesc[int]) or (typ is typedesc[int8]) or
     (typ is typedesc[int16]):
     arrayType = "short"
@@ -259,39 +295,11 @@ proc aastore*(mthd: var Method) =
 proc aconst_null*(mthd: var Method) =
   mthd.body.add Snippet(code: "aconst_null", indent: 0)
 
-proc aload_0*(mthd: var Method) =
-  mthd.stackCounter += 1
-  mthd.body.add Snippet(code: "aload_0", indent: 0)
-
-proc aload_1*(mthd: var Method) =
-  mthd.stackCounter += 1
-  mthd.body.add Snippet(code: "aload_1", indent: 0)
-
-proc aload_2*(mthd: var Method) =
-  mthd.stackCounter += 1
-  mthd.body.add Snippet(code: "aload_2", indent: 0)
-
-proc aload_3*(mthd: var Method) =
-  mthd.stackCounter += 1
-  mthd.body.add Snippet(code: "aload_3", indent: 0)
-
 proc areturn*(mthd: var Method) =
   mthd.body.add Snippet(code: "areturn", indent: 0)
 
 proc arraylength*(mthd: var Method) =
   mthd.body.add Snippet(code: "arraylength", indent: 0)
-
-proc astore_0*(mthd: var Method) =
-  mthd.body.add Snippet(code: "astore_0", indent: 0)
-
-proc astore_1*(mthd: var Method) =
-  mthd.body.add Snippet(code: "astore_1", indent: 0)
-
-proc astore_2*(mthd: var Method) =
-  mthd.body.add Snippet(code: "astore_2", indent: 0)
-
-proc astore_3*(mthd: var Method) =
-  mthd.body.add Snippet(code: "astore_3", indent: 0)
 
 proc athrow*(mthd: var Method) =
   mthd.body.add Snippet(code: "athrow", indent: 0)
@@ -344,18 +352,6 @@ proc dconst_1*(mthd: var Method) =
 proc ddiv*(mthd: var Method) =
   mthd.body.add Snippet(code: "ddiv", indent: 0)
 
-proc dload_0*(mthd: var Method) =
-  mthd.body.add Snippet(code: "dload_0", indent: 0)
-
-proc dload_1*(mthd: var Method) =
-  mthd.body.add Snippet(code: "dload_1", indent: 0)
-
-proc dload_2*(mthd: var Method) =
-  mthd.body.add Snippet(code: "dload_2", indent: 0)
-
-proc dload_3*(mthd: var Method) =
-  mthd.body.add Snippet(code: "dload_3", indent: 0)
-
 proc dmul*(mthd: var Method) =
   mthd.body.add Snippet(code: "dmul", indent: 0)
 
@@ -367,18 +363,6 @@ proc drem*(mthd: var Method) =
 
 proc dreturn*(mthd: var Method) =
   mthd.body.add Snippet(code: "dreturn", indent: 0)
-
-proc dstore_0*(mthd: var Method) =
-  mthd.body.add Snippet(code: "dstore_0", indent: 0)
-
-proc dstore_1*(mthd: var Method) =
-  mthd.body.add Snippet(code: "dstore_1", indent: 0)
-
-proc dstore_2*(mthd: var Method) =
-  mthd.body.add Snippet(code: "dstore_2", indent: 0)
-
-proc dstore_3*(mthd: var Method) =
-  mthd.body.add Snippet(code: "dstore_3", indent: 0)
 
 proc dsub*(mthd: var Method) =
   mthd.body.add Snippet(code: "dsub", indent: 0)
@@ -437,18 +421,6 @@ proc fconst_2*(mthd: var Method) =
 proc fdiv*(mthd: var Method) =
   mthd.body.add Snippet(code: "fdiv", indent: 0)
 
-proc fload_0*(mthd: var Method) =
-  mthd.body.add Snippet(code: "fload_0", indent: 0)
-
-proc fload_1*(mthd: var Method) =
-  mthd.body.add Snippet(code: "fload_1", indent: 0)
-
-proc fload_2*(mthd: var Method) =
-  mthd.body.add Snippet(code: "fload_2", indent: 0)
-
-proc fload_3*(mthd: var Method) =
-  mthd.body.add Snippet(code: "fload_3", indent: 0)
-
 proc fmul*(mthd: var Method) =
   mthd.body.add Snippet(code: "fmul", indent: 0)
 
@@ -460,18 +432,6 @@ proc frem*(mthd: var Method) =
 
 proc freturn*(mthd: var Method) =
   mthd.body.add Snippet(code: "freturn", indent: 0)
-
-proc fstore_0*(mthd: var Method) =
-  mthd.body.add Snippet(code: "fstore_0", indent: 0)
-
-proc fstore_1*(mthd: var Method) =
-  mthd.body.add Snippet(code: "fstore_1", indent: 0)
-
-proc fstore_2*(mthd: var Method) =
-  mthd.body.add Snippet(code: "fstore_2", indent: 0)
-
-proc fstore_3*(mthd: var Method) =
-  mthd.body.add Snippet(code: "fstore_3", indent: 0)
 
 proc fsub*(mthd: var Method) =
   mthd.body.add Snippet(code: "fsub", indent: 0)
@@ -521,18 +481,6 @@ proc iconst_m1*(mthd: var Method) =
 proc idiv*(mthd: var Method) =
   mthd.body.add Snippet(code: "idiv", indent: 0)
 
-proc iload_0*(mthd: var Method) =
-  mthd.body.add Snippet(code: "iload_0", indent: 0)
-
-proc iload_1*(mthd: var Method) =
-  mthd.body.add Snippet(code: "iload_1", indent: 0)
-
-proc iload_2*(mthd: var Method) =
-  mthd.body.add Snippet(code: "iload_2", indent: 0)
-
-proc iload_3*(mthd: var Method) =
-  mthd.body.add Snippet(code: "iload_3", indent: 0)
-
 proc imul*(mthd: var Method) =
   mthd.body.add Snippet(code: "imul", indent: 0)
 
@@ -562,18 +510,6 @@ proc ishl*(mthd: var Method) =
 
 proc ishr*(mthd: var Method) =
   mthd.body.add Snippet(code: "ishr", indent: 0)
-
-proc istore_0*(mthd: var Method) =
-  mthd.body.add Snippet(code: "istore_0", indent: 0)
-
-proc istore_1*(mthd: var Method) =
-  mthd.body.add Snippet(code: "istore_1", indent: 0)
-
-proc istore_2*(mthd: var Method) =
-  mthd.body.add Snippet(code: "istore_2", indent: 0)
-
-proc istore_3*(mthd: var Method) =
-  mthd.body.add Snippet(code: "istore_3", indent: 0)
 
 proc isub*(mthd: var Method) =
   mthd.body.add Snippet(code: "isub", indent: 0)
@@ -617,18 +553,6 @@ proc lconst_1*(mthd: var Method) =
 proc ldiv*(mthd: var Method) =
   mthd.body.add Snippet(code: "ldiv", indent: 0)
 
-proc lload_0*(mthd: var Method) =
-  mthd.body.add Snippet(code: "lload_0", indent: 0)
-
-proc lload_1*(mthd: var Method) =
-  mthd.body.add Snippet(code: "lload_1", indent: 0)
-
-proc lload_2*(mthd: var Method) =
-  mthd.body.add Snippet(code: "lload_2", indent: 0)
-
-proc lload_3*(mthd: var Method) =
-  mthd.body.add Snippet(code: "lload_3", indent: 0)
-
 proc lmul*(mthd: var Method) =
   mthd.body.add Snippet(code: "lmul", indent: 0)
 
@@ -649,18 +573,6 @@ proc lshl*(mthd: var Method) =
 
 proc lshr*(mthd: var Method) =
   mthd.body.add Snippet(code: "lshr", indent: 0)
-
-proc lstore_0*(mthd: var Method) =
-  mthd.body.add Snippet(code: "lstore_0", indent: 0)
-
-proc lstore_1*(mthd: var Method) =
-  mthd.body.add Snippet(code: "lstore_1", indent: 0)
-
-proc lstore_2*(mthd: var Method) =
-  mthd.body.add Snippet(code: "lstore_2", indent: 0)
-
-proc lstore_3*(mthd: var Method) =
-  mthd.body.add Snippet(code: "lstore_3", indent: 0)
 
 proc lsub*(mthd: var Method) =
   mthd.body.add Snippet(code: "lsub", indent: 0)

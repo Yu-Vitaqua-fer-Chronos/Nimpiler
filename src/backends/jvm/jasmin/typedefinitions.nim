@@ -1,6 +1,7 @@
 import std/[
   options,
-  strutils
+  strutils,
+  strformat
 ]
 
 import ../../../typedefinitions as gentypes
@@ -37,6 +38,18 @@ type
     implements*: seq[string]      # Unless we're interacting with JVM code, this should be empty
     methods*: seq[Method]         # All methods in the class body
     fields*: seq[Field]           # All fields in the class body
+
+
+proc newMethod*(accessModifiers: seq[string], name: string, arguments: seq[string]=newSeq[string](0)): Method =
+  result = Method()
+  result.accessModifiers = accessModifiers
+  result.name = name
+  result.arguments = arguments
+
+  if "static" notin result.accessModifiers:
+    result.localsCounter += 1
+    result.variables.add name
+    result.body.add Snippet(code: fmt".var 0 is JAVATHIS !!CurrentJavaClass!!", indent: 0)
 
 
 type JasminCtx* = object of GenCtx
