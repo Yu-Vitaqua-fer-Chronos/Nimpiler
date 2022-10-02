@@ -89,10 +89,13 @@ proc gen(ctx: var JasminCtx, n: PNode) =
       genProc(ctx, s)
 
     of skVar:
+      ctx.dedupNodes.add s.astdef # Crappy dedup handling, look at a better way to do this
+
       case s.astdef.kind
       of nkStrLit..nkTripleStrLit:
         ctx.cmthd.storeVar(s.name.s, "java/lang/String")
 
+      # TODO: Implement `uint` math, it is fucking hell in Java and the JVM, because it doesn't already exist
       of nkIntLit..nkUInt64Lit:
         ctx.cmthd.storeVar(s.name.s, "I") # Currently this doesn't allow for duplicate names, we need to fix that
         ctx.cmthd.sipush(s.astdef.intVal)
@@ -132,26 +135,37 @@ proc gen(ctx: var JasminCtx, n: PNode) =
     discard
 
   of nkLiterals:
-    case n.kind
-    of nkStrLit..nkTripleStrLit:
-      ctx.cmthd.ldc(n.strVal)
+    if n notin ctx.dedupNodes:
+      case n.kind
+      of nkStrLit..nkTripleStrLit:
+        ctx.cmthd.ldc(n.strVal)
 
-    of nkIntLit..nkUInt64Lit:
-      ctx.cmthd.sipush(n.intVal)
+      of nkIntLit..nkUInt64Lit:
+        ctx.cmthd.sipush(n.intVal)
 
-    else:
-      echo "Implementation missing for: ", n.kind
+      else:
+        echo "Implementation missing for: ", n.kind
 
   of nkStmtList: # Go through child nodes
     for i in 0..<n.len:
       gen(ctx, n[i])
 
   of nkIdentDefs:
-    echo "Start of nkIdentDefs"
     for i in 0..<n.len:
       gen(ctx, n[i])
-    echo "End of nkIdentDefs"
 
+  of nkVarSection:
+    for i in 0..<n.len:
+      gen(ctx, n[i])
+
+  of nkBracket:
+    for i in 0..<n.len:
+      gen(ctx, n[i])
+
+  of nkHiddenStdConv:
+    for i in 0..<n.len:
+      gen(ctx, n[i])
+      echo n[i].kind
 
   of nkEmpty: # Empty nodes can be safely discarded
     discard

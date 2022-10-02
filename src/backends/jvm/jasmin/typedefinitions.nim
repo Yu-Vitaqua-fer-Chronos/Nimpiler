@@ -4,6 +4,10 @@ import std/[
   strformat
 ]
 
+import compiler/ast/[
+  ast_types
+]
+
 import ../../../typedefinitions as gentypes
 
 # TODO: Make access modifier enums
@@ -56,6 +60,7 @@ type JasminCtx* = object of GenCtx
   ccls*: Class         # So we know the current class
   cmthds*: seq[Method] # Seq of all the methods in the sequence
 
+  dedupNodes*: seq[PNode]
   depth*: int # Only so we know if the code should be in the main method or not
 
 # Allow easy access to the first value of the methods
